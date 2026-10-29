@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_DB: dixon
+      POSTGRES_USER: dixon
+      POSTGRES_PASSWORD: local-only-change-me
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dixon"]
+      interval: 5s
+      retries: 10
+volumes:
+  pgdata:

@@ -1,0 +1,37 @@
+# Vercel + Railway deployment
+
+These are deployment instructions, not evidence that production is deployed. Current public Sites URL is the legacy demonstration. New app needs provider connections and secrets.
+
+## Railway
+
+1. Create a Railway project and PostgreSQL service. Connect the API service to the GitHub repository; Dockerfile `apps/api/Dockerfile`, repository root as build context. `railway.json` defines pre-deploy migration/seed and DB healthcheck.
+2. Set DATABASE_URL to Railway's private PostgreSQL reference. Set NODE_ENV=production, real BOT_TOKEN, exact FRONTEND_URL (comma-separated allowed origins), TELEGRAM_WEBHOOK_SECRET (random ≥32 characters). Disable/remove ALLOW_DEV_AUTH. Set ADMIN_TELEGRAM_IDS to real trusted operator IDs.
+3. Configure S3_ENDPOINT/S3_REGION/S3_BUCKET/S3_ACCESS_KEY/S3_SECRET_KEY/S3_PUBLIC_URL. Bucket holds only sanitized public profile photos; credentials restricted to this bucket. Use a separate bucket/environment for staging. No uploads if storage is unconfigured.
+4. Set SENTRY_DSN and POSTHOG_API_KEY, POSTHOG_HOST (regional host); these keys belong on API service only. Do not put them into NEXT_PUBLIC variables.
+5. Railway build runs npm ci, Prisma generate, tsc. Pre-deploy: prisma migrate deploy + guarded reference-data seed. Start uses process.env.PORT. Confirm /api/v1/health returns 200 and DB is reachable. Start with one API replica; PostgreSQL rate/outbox locks work with additional replicas.
+6. Review CORS domain after Vercel deployment. Requests still require bearer authentication; CORS is not an authorization boundary.
+
+## Vercel
+
+1. Import the same repo, framework Next.js, Root Directory `apps/web`; enable including source files outside the Root Directory (shared workspace types).
+2. Set NEXT_PUBLIC_API_URL=https://<railway-host>/api/v1. Optional NEXT_PUBLIC_MAP_STYLE_URL defaults to OpenFreeMap Liberty; tiles/style must be production-appropriate for expected traffic. Set NEXT_PUBLIC_SENTRY_DSN to browser project's DSN.
+3. Root npm workspaces lockfile is authoritative. Build from apps/web with `npm run build`; Vercel resolves workspace dependencies from repository root. Do not use legacy dist/ as frontend output.
+4. Accept Vercel's allocated production domain; dixon.vercel.app and custom domains are examples, availability not assumed. Update FRONTEND_URL in Railway to the exact final origin; production rejects wildcard and HTTP origins.
+
+## Telegram
+
+Use BotFather to set the Mini App/menu button to Vercel HTTPS URL. In a secret-aware provider shell set BACKEND_URL then run `node scripts/setup-webhook.mjs`; it registers webhook with secret_token. Do not paste bot token in a command argument or chat. No long polling. Users must open bot /start or grant Telegram write access before bot notifications; /stop disables them.
+
+## Checks before first real users
+
+- CI PostgreSQL critical flows pass, actual /health is green, correct DB migrations applied.
+- Two real Telegram accounts, profile persistence across devices, mutual like once, event join capacity and blocked discovery/location.
+- Photo upload and delete in actual bucket; queue retry and physical object removal after account deletion.
+- Webhook secret rejected when invalid; real /start and one notification delivered; reminder tested with future event.
+- Sentry receives a deliberate staging exception; configure source-map upload if readable production stack traces are needed (Sentry auth token is CI-only). Verify PostHog events, no raw coordinates/contact/DOB/initData in logs.
+- iOS Telegram, Android Telegram and Telegram Desktop manual checklist including keyboard, safe areas, gestures, geolocation permission denied and slow network.
+- Configure encrypted DB backups, restore drill, retention policy, moderation owner/escalation and media deletion retries. No billing service is provisioned automatically without a connected provider and operator-approved plan.
+
+## Acceptance status
+
+Do not mark production ready based on successful local build. Record real provider URLs, deployment revisions, CI run link, device evidence and observability deliveries in docs/verification.md. Missing credentials/connections remain release blockers, not silently simulated successes.

@@ -1,0 +1,44 @@
+{
+  "name": "dixon-movement",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.11.0 <23"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web \"npm run dev -w @dixon/api\" \"npm run dev -w @dixon/web\"",
+    "build": "npm run db:generate && npm run build -w @dixon/api && npm run build -w @dixon/web",
+    "typecheck": "tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json",
+    "test": "npm run test -w @dixon/api",
+    "test:integration": "npm run test:integration -w @dixon/api",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "prisma": "6.19.0",
+    "typescript": "~5.9.3",
+    "tsx": "^4.20.6",
+    "concurrently": "^9.2.1",
+    "@types/node": "^22.19.0"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.0"
+  },
+  "overrides": {
+    "multer": "^2.5.0",
+    "postcss": "^8.5.23",
+    "deepmerge-ts": "^8.0.0",
+    "effect": "^3.20.0",
+    "sharp": "^0.35.5",
+    "next": "16.4.3"
+  }
+}

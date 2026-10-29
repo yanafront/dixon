@@ -1,0 +1,33 @@
+{
+  "name": "@dixon/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node --env-file=../../.env ../../scripts/dev-api.mjs",
+    "build": "tsc -p tsconfig.json",
+    "start:prod": "node dist/apps/api/src/main.js",
+    "test": "npm run build && tsx --test test/*.test.ts",
+    "test:integration": "npm run build && tsx --test --test-concurrency=1 test/*.integration.ts"
+  },
+  "dependencies": {
+    "@dixon/types": "*",
+    "@nestjs/common": "^12.3.2",
+    "@nestjs/core": "^12.3.2",
+    "@nestjs/platform-express": "^12.3.2",
+    "@aws-sdk/client-s3": "^3.922.0",
+    "@sentry/node": "^10.22.0",
+    "helmet": "^8.1.0",
+    "nestjs-pino": "^4.4.1",
+    "pino-http": "^11.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "sharp": "^0.35.5",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "supertest": "^7.1.4",
+    "@types/supertest": "^6.0.3",
+    "embedded-postgres": "^18.1.0-beta.15"
+  }
+}

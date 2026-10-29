@@ -1,0 +1,40 @@
+name: Build and critical PostgreSQL flows
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: dixon
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: dixon_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dixon" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://dixon:ci-only@localhost:5432/dixon_test
+      NODE_ENV: test
+      BOT_TOKEN: ci-test-token
+      TELEGRAM_WEBHOOK_SECRET: ci-webhook-secret-not-production-value
+      DISABLE_WORKER: "true"
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.11.0"
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:deploy
+      - run: npm run db:seed
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
