@@ -785,9 +785,8 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         }}
       />
       <header>
-        <button className="logo" onClick={() => go("home")}>
-          DIXON<span>●</span>
-          <small>MOVEMENT COMMUNITY</small>
+        <button className="logo" onClick={() => go("home")} aria-label="DIXON — на главную">
+          <img className="brand-logo" src="/brand/dixon-logo.svg" alt="DIXON Clothing Brand" width={1830} height={514} />
         </button>
         <span className="city">◎ {me?.city || "Минск"}</span>
         <div className="header-right">
