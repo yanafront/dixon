@@ -116,7 +116,6 @@ export class AuthService {
       },
       update: {
         telegramUsername: u.username ?? null,
-        ...(u.allows_write_to_pm ? { botOptIn: true } : {}),
       },
     });
     if (user.isBlocked || !user.isActive)
@@ -246,7 +245,7 @@ export function publicUser(u: any, origin?: any) {
     goals: u.goals?.map((g: any) => g.goal) ?? [],
     photos: u.photos?.map((p: any) => ({ id: p.id, url: p.url })) ?? [],
     distanceKm:
-      origin && live && live.showDistance
+      origin && live && live.showDistance && live.audience === "COMMUNITY"
         ? Math.ceil(distance(origin, live) / 3) * 3
         : null,
   };
@@ -264,23 +263,21 @@ export const userInclude = {
 export class ErrorFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
     const res = host.switchToHttp().getResponse();
+    if (error instanceof HttpException && error.getStatus() === 401)
+      console.warn(JSON.stringify({ level: "warn", event: "auth_failure" }));
     if (error instanceof HttpException)
       return res.status(error.getStatus()).json(error.getResponse());
     if (error instanceof ZodError)
-      return res
-        .status(422)
-        .json({
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Check the submitted fields",
-          },
-        });
+      return res.status(422).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Check the submitted fields",
+        },
+      });
     if ((error as any)?.code === "P2025")
-      return res
-        .status(404)
-        .json({
-          error: { code: "NOT_FOUND", message: "Resource unavailable" },
-        });
+      return res.status(404).json({
+        error: { code: "NOT_FOUND", message: "Resource unavailable" },
+      });
     if ((error as any)?.code === "P2002")
       return res
         .status(409)
@@ -293,13 +290,11 @@ export class ErrorFilter implements ExceptionFilter {
         kind: (error as any)?.constructor?.name,
       }),
     );
-    res
-      .status(500)
-      .json({
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Что-то пошло не так. Попробуйте ещё раз.",
-        },
-      });
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Что-то пошло не так. Попробуйте ещё раз.",
+      },
+    });
   }
 }

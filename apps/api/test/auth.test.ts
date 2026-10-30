@@ -42,3 +42,47 @@ test("age on exact birthday, before birthday and leap birthday", () => {
   assert.equal(age(new Date("2008-10-31"), new Date("2026-10-30")), 17);
   assert.equal(age(new Date("2008-02-29"), new Date("2026-02-28")), 17);
 });
+
+test("public profile never exposes DOB, Telegram contact, session or private location", () => {
+  const { publicUser } = require("../dist/apps/api/src/core.js");
+  const u = {
+    id: "user",
+    firstName: "User",
+    telegramId: "123",
+    telegramUsername: "private_contact",
+    role: "ADMIN",
+    profile: {
+      birthDate: new Date("1996-01-01"),
+      city: "Минск",
+      bio: "",
+      gender: "UNDISCLOSED",
+      sportLevel: "BEGINNER",
+    },
+    location: {
+      latitude: 53.912345,
+      longitude: 27.54321,
+      publicLatitude: 53.92,
+      publicLongitude: 27.54,
+      showDistance: true,
+      audience: "MATCHES",
+      expiresAt: new Date(Date.now() + 3600000),
+    },
+    photos: [],
+    sports: [],
+    goals: [],
+    sessions: [{ tokenHash: "secret" }],
+  };
+  const dto = publicUser(u, { publicLatitude: 53.9, publicLongitude: 27.5 });
+  assert.equal(dto.distanceKm, null);
+  for (const key of [
+    "telegramId",
+    "telegramUsername",
+    "role",
+    "sessions",
+    "birthDate",
+    "location",
+    "latitude",
+    "longitude",
+  ])
+    assert(!(key in dto));
+});

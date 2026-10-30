@@ -214,6 +214,11 @@ export class UsersController {
   @Get("nearby") nearby(@Req() r: AuthRequest) {
     return this.users.nearby(r.user.id);
   }
+  @Get("me/location-status") async ownLocation(@Req() r: AuthRequest) {
+    return this.db.locationStatus.findFirst({
+      where: { userId: r.user.id, expiresAt: { gt: new Date() } },
+    });
+  }
   @Put("me/location-status") async location(
     @Req() r: AuthRequest,
     @Body() b: unknown,

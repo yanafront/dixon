@@ -205,6 +205,12 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
       setError("");
       try {
         const init = window.Telegram?.WebApp.initData;
+        if (!id && !init)
+          throw new ApiError(
+            "AUTH_REQUIRED",
+            401,
+            "Открой приложение через Telegram.",
+          );
         const result = id ? await api.devAuth(id) : await api.auth(init || "");
         setToken(result.token);
         setMe(result.user);
@@ -262,6 +268,13 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         day: "2-digit",
       }).format(new Date()),
     );
+  const ownStatus = useQuery({
+    queryKey: ["own-location"],
+    queryFn: () =>
+      request<{ expiresAt: string } | null>("/users/me/location-status"),
+    enabled: ready,
+    refetchInterval: 30000,
+  });
   const events = useQuery({
     queryKey: ["events", query.toString()],
     queryFn: () => api.events("?" + query.toString()),
@@ -817,7 +830,21 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
                 className="status"
                 onClick={() => setModal({ type: "location" })}
               >
-                <span className="dot" />Я открыт к общению ↗
+                <span
+                  className="dot"
+                  style={{
+                    background:
+                      ownStatus.data &&
+                      new Date(ownStatus.data.expiresAt) > new Date()
+                        ? "#36a777"
+                        : "#aaa",
+                  }}
+                />
+                {ownStatus.data &&
+                new Date(ownStatus.data.expiresAt) > new Date()
+                  ? "Открыт к общению"
+                  : "Я открыт к общению"}{" "}
+                ↗
               </button>
             </div>
           )}
@@ -1718,7 +1745,20 @@ function EventDetail({
       <p>{e.description}</p>
       {Object.entries(e.parameters).map(([k, v]) => (
         <p className="subtle" key={k}>
-          {k}: {String(v)}
+          {(
+            {
+              distance_km: "Дистанция, км",
+              pace_min_km: "Темп, мин/км",
+              surface: "Покрытие",
+              speed_kmh: "Скорость, км/ч",
+              bike_type: "Велосипед",
+              elevation_m: "Набор высоты, м",
+              duration_min: "Длительность, мин",
+              equipment: "Снаряжение",
+              notes: "Дополнительно",
+            } as Record<string, string>
+          )[k] || "Параметр"}
+          : {Array.isArray(v) ? v.join(", ") : String(v)}
         </p>
       ))}
       <button className="text" onClick={() => setShowMembers(!showMembers)}>

@@ -51,3 +51,5 @@ Errors: `{ "error": { "code": "EVENT_FULL", "message": "Event has reached capaci
 Run `packages/types/src/index.ts` Zod schemas on the backend; frontend imports corresponding types. Event price is BYN whole units in current UI; no payments collected. Additional sport parameters: running distance_km/pace_min_km/surface; cycling distance_km/speed_kmh/bike_type; hiking distance_km/elevation_m/duration_min/equipment. Unknown keys rejected. Event dates are ISO timestamps, displayed Europe/Minsk.
 
 Production /auth/dev is always unavailable, even if a flag is mistakenly configured (startup rejects ALLOW_DEV_AUTH in production). No production fake users or matches.
+
+`GET /users/me/location-status` returns only the requester’s active status (null after TTL) for the UI visibility indicator.
