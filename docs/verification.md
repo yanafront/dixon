@@ -4,15 +4,15 @@
 
 - Prisma schema generated and initial PostgreSQL SQL migration emitted.
 - TypeScript checks for API and web passed.
-- Telegram unit tests: eight passed (valid, forged, expired, future, duplicate parameters; birthday boundary; public profile and event DTO privacy contracts).
+- Telegram/backend unit tests: eleven passed (valid, forged, expired, future, duplicate parameters; birthday boundary; public profile and event DTO privacy contracts).
 - Next.js 16.4.3 production build and API compilation passed after security upgrades.
 - npm audit after dependency deduplication: zero vulnerabilities (including dev dependencies).
 - PostgreSQL integration test exists and CI template defines a real PostgreSQL 17 service. GitHub rejected workflow upload because the current PAT lacks workflow scope; template is supplied in docs/ci/github-actions.yml and has not run. Local execution blocked by OS sandbox: initdb `shmget` → Operation not permitted. Not marked passed.
 
 ## Not yet accepted as production
 
-- Vercel and Railway connections are now authorized. Frontend production deployment is verified below; DIXON backend and PostgreSQL have not yet been provisioned on Railway.
-- No real bot/storage/Sentry/PostHog secrets were provided. SDK/API integration code exists; actual deliveries, uploads and observability are unverified.
+- Vercel and Railway connections are now authorized. Frontend production deployment is verified below; DIXON backend and PostgreSQL are now running on Railway; see the verified backend wiring below.
+- Bot token was supplied directly in Railway and Telegram setup is confirmed. Storage/Sentry/PostHog configuration and actual notification deliveries/uploads remain unverified.
 - iOS, Android and Desktop Telegram checks require the deployed app and real test accounts/devices.
 - Operational moderation, backup/restore and privacy retention are launch gates.
 
@@ -49,3 +49,17 @@ Production frontend HTTP smoke checks: `/` and `/admin` both return 200. The adm
 - Runtime error scan for the production deployment over the last 10 minutes returned no matching error/fatal records. This is a new static frontend deployment, not proof of a working backend or completed Telegram journey.
 - Deployment Protection remains enabled. HTTP verification used the owner's authorized Vercel access.
 - NEXT_PUBLIC_API_URL, real Telegram bot, storage and monitoring still need production configuration. Frontend publication alone is not complete MVP acceptance.
+
+## Backend + Telegram — verified 30 October 2026
+
+- Source commit: 770772fe2d9e74471e7752781d993db6fe3d3df9. Eleven unit tests and TypeScript checks passed; frontend and API builds passed.
+- Railway API deployment cc45d8ad-dc7c-4502-b480-13f1b211c51b: SUCCESS. Postgres deployment: SUCCESS.
+- Runtime logs confirm initial Prisma migration 202610300001_initial applied successfully.
+- Public GET https://dixon-api-production.up.railway.app/api/v1/health → 200, status ok (queries real PostgreSQL).
+- Public GET /api/v1/auth/config → 200, telegramBotUsername dixonapp, telegramConfigured true. This flag is set only after successful getMe, setWebhook and setChatMenuButton responses from Telegram.
+- GET /api/v1/users/me without session → 401 AUTH_REQUIRED. Forged initData → 401 AUTH_INVALID.
+- CORS preflight from https://dixon-movement.vercel.app → 204, exact allow-origin and authorization/content-type headers.
+- Vercel production deployment dpl_9GmJbNoLhAEMmuuL45nhS7YzTWg9: READY. NEXT_PUBLIC_API_URL points to real Railway API. Stable production domain is accessible without Vercel login; unique deployment URLs/previews retain Standard Protection.
+- No bot token, webhook secret or database credentials are committed or returned in public responses.
+- First real-account Mini App sign-in and onboarding must be verified by opening https://t.me/dixonapp and pressing the configured Open DIXON menu button. No real user data was fabricated to claim that check passed.
+- PostgreSQL integration/concurrency suite and device-specific iOS/Android/Desktop acceptance remain separate checks; live health/auth-negative probes do not replace them.
