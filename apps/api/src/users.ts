@@ -108,14 +108,14 @@ export class UsersService {
     return this.me(id);
   }
   async nearby(id: string) {
-    await adult(this.db, id);
+    const viewer = await adult(this.db, id);
     const blocked = await excluded(this.db, id);
     const u = await this.db.user.findMany({
       where: {
         id: { notIn: [id, ...blocked] },
         isActive: true,
         isBlocked: false,
-        profile: { isHidden: false },
+        profile: { isHidden: false, city: viewer.city },
         location: { expiresAt: { gt: new Date() } },
       },
       include: userInclude,

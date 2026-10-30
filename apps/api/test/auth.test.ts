@@ -86,3 +86,30 @@ test("public profile never exposes DOB, Telegram contact, session or private loc
   ])
     assert(!(key in dto));
 });
+
+test("event DTO hides attendance IDs, save owners, staff flags and member-only chat from outsiders", () => {
+  const { eventDto } = require("../dist/apps/api/src/events.js");
+  const event = {
+    id: "event",
+    creator: {
+      id: "host",
+      firstName: "Host",
+      isVerified: true,
+      isBlocked: false,
+      isActive: true,
+    },
+    participants: [{ userId: "member" }],
+    saved: [{ userId: "other" }],
+    telegramChatUrl: "https://t.me/private_event_chat",
+  };
+  const dto = eventDto(event, "outsider");
+  assert.equal(dto.telegramChatUrl, null);
+  assert.equal(dto.participantCount, 1);
+  assert(!("participants" in dto));
+  assert(!("isBlocked" in dto.creator));
+  assert(!Array.isArray(dto.saved));
+  assert.equal(
+    eventDto(event, "member").telegramChatUrl,
+    event.telegramChatUrl,
+  );
+});

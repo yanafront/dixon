@@ -41,7 +41,7 @@ export class DiscoveryService {
       where: { id: to },
       include: userInclude,
     });
-    if (from === to || me.profile?.isHidden)
+    if (from === other.id || me.profile?.isHidden)
       fail(404, "NOT_ELIGIBLE", "Unavailable");
     const hasGoal = (u: any) =>
       u.goals.some((g: any) => g.goal === mode || g.goal === "OPEN");
@@ -153,7 +153,8 @@ export class DiscoveryService {
     parse(z.string().uuid(), to);
     parse(modeSchema, mode);
     await adult(this.db, from);
-    await this.eligible(from, to, mode);
+    const eligible = await this.eligible(from, to, mode);
+    to = eligible.other.id;
     await rate(this.db, `swipe:${from}`, 60, 3600);
     const [a, b] = [from, to].sort();
     return this.db.$transaction(async (tx) => {

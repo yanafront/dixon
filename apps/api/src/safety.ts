@@ -36,7 +36,14 @@ export class SafetyController {
   @Post("blocks") async block(@Req() r: AuthRequest, @Body() body: unknown) {
     await adult(this.db, r.user.id);
     const { userId } = parse(
-      z.object({ userId: z.string().uuid() }).strict(),
+      z
+        .object({
+          userId: z
+            .string()
+            .uuid()
+            .transform((v) => v.toLowerCase()),
+        })
+        .strict(),
       body,
     );
     if (userId === r.user.id)

@@ -199,6 +199,7 @@ export async function excluded(db: Db, id: string) {
   return b.map((x) => (x.blockerId === id ? x.blockedId : x.blockerId));
 }
 export async function ensureVisible(db: Db, viewer: string, target: string) {
+  target = target.toLowerCase();
   if (viewer === target) return;
   const u = await db.user.findUnique({
     where: { id: target },

@@ -4,7 +4,7 @@
 
 - Prisma schema generated and initial PostgreSQL SQL migration emitted.
 - TypeScript checks for API and web passed.
-- Telegram unit tests: seven passed (valid, forged, expired, future, duplicate parameters; birthday boundary; public DTO privacy contract).
+- Telegram unit tests: eight passed (valid, forged, expired, future, duplicate parameters; birthday boundary; public profile and event DTO privacy contracts).
 - Next.js 16.4.3 production build and API compilation passed after security upgrades.
 - npm audit after dependency deduplication: zero vulnerabilities (including dev dependencies).
 - PostgreSQL integration test exists and CI template defines a real PostgreSQL 17 service. GitHub rejected workflow upload because the current PAT lacks workflow scope; template is supplied in docs/ci/github-actions.yml and has not run. Local execution blocked by OS sandbox: initdb `shmget` → Operation not permitted. Not marked passed.

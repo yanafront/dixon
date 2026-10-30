@@ -45,7 +45,15 @@ const query = z
   })
   .strict();
 const include = {
-  creator: { select: { id: true, firstName: true, isVerified: true } },
+  creator: {
+    select: {
+      id: true,
+      firstName: true,
+      isVerified: true,
+      isActive: true,
+      isBlocked: true,
+    },
+  },
   participants: {
     where: { status: "JOINED" as const },
     select: { userId: true },
@@ -56,6 +64,11 @@ export function eventDto(e: any, id: string) {
   const { participants, saved, ...rest } = e;
   return {
     ...rest,
+    creator: {
+      id: e.creator.id,
+      firstName: e.creator.firstName,
+      isVerified: e.creator.isVerified,
+    },
     telegramChatUrl: participants.some((p: any) => p.userId === id)
       ? rest.telegramChatUrl
       : null,
@@ -73,6 +86,8 @@ export class EventsService {
     if (
       !e ||
       e.isCancelled ||
+      !e.creator.isActive ||
+      e.creator.isBlocked ||
       (await excluded(this.db, userId)).includes(e.creatorId) ||
       (e.isPrivate &&
         e.creatorId !== userId &&
@@ -82,7 +97,7 @@ export class EventsService {
     return e;
   }
   async list(id: string, q: unknown) {
-    await adult(this.db, id);
+    const profile = await adult(this.db, id);
     const d = parse(query, q);
     const blocked = await excluded(this.db, id);
     const day = d.date ? new Date(d.date + "T00:00:00+03:00") : undefined;
@@ -97,7 +112,7 @@ export class EventsService {
           { participants: { some: { userId: id, status: "JOINED" } } },
         ],
         ...(d.category ? { category: d.category } : {}),
-        ...(d.city ? { city: d.city } : {}),
+        city: d.city ?? profile.city,
         ...(d.difficulty ? { difficulty: d.difficulty } : {}),
         dateStart: day
           ? { gte: day, lt: new Date(+day + 86400000) }
@@ -231,8 +246,21 @@ export class EventsService {
     });
   }
   async cancel(userId: string, id: string, asAdmin = false) {
+    parse(uuid, id);
     return this.db.$transaction(async (tx) => {
-      const e = await this.accessible(id, userId, tx);
+      const e = asAdmin
+        ? await tx.event.findUnique({ where: { id }, include })
+        : await this.accessible(id, userId, tx);
+      if (!e) fail(404, "EVENT_UNAVAILABLE", "Event unavailable");
+      if (asAdmin)
+        await tx.moderationAction.create({
+          data: {
+            actorId: userId,
+            targetId: id,
+            action: "CANCEL_EVENT",
+            reason: "Administrator event moderation",
+          },
+        });
       if (e.creatorId !== userId && !asAdmin)
         fail(403, "FORBIDDEN", "Only the organizer can cancel");
       await tx.event.update({ where: { id }, data: { isCancelled: true } });
