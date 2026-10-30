@@ -18,7 +18,9 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "deploy:prepare": "npm run db:deploy && npm run db:seed",
+    "railway:start": "npm run deploy:prepare && npm run start:prod -w @dixon/api"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

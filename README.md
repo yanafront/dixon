@@ -54,6 +54,6 @@ Copy only `.env.example` templates. Never commit real secrets. Backend uses DATA
 
 ## Deploy
 
-Frontend: Vercel Root Directory apps/web. Backend: Railway Dockerfile apps/api/Dockerfile, root context; Railway PostgreSQL. Production migration runs before start, not migrate dev. See [deployment instructions](docs/deployment.md). Existing demo URL is not proof of this production infrastructure. See [verified checks and release blockers](docs/verification.md).
+Frontend: Vercel Root Directory apps/web. Backend: Railway Dockerfile apps/api/Dockerfile, root context; Railway PostgreSQL. Railway start command npm run railway:start runs migrations and seed before API startup; never migrate dev. See docs/deployment.md for provider settings; legacy railway.json is archived. See [deployment instructions](docs/deployment.md). Existing demo URL is not proof of this production infrastructure. See [verified checks and release blockers](docs/verification.md).
 
 To enable CI, copy `docs/ci/github-actions.yml` into `.github/workflows/ci.yml` using a GitHub credential with workflow write permission. The current source-push credential lacks this permission.

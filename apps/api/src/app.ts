@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type { Request } from "express";
+import { TelegramSetup, telegramState } from "./telegram-setup";
 import { LoggerModule } from "nestjs-pino";
 import { z } from "zod";
 import {
@@ -39,6 +40,12 @@ class PublicController {
     private auth: AuthService,
     private users: UsersService,
   ) {}
+  @Get("auth/config") config() {
+    return {
+      telegramBotUsername: telegramState.username,
+      telegramConfigured: telegramState.configured,
+    };
+  }
   @Get("auth/me") @UseGuards(AuthGuard) me(@Req() r: AuthRequest) {
     return this.users.me(r.user.id);
   }
@@ -138,6 +145,7 @@ class PublicController {
     DiscoveryService,
     MediaService,
     Worker,
+    TelegramSetup,
   ],
 })
 export class AppModule {}

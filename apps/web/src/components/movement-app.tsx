@@ -268,6 +268,13 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         day: "2-digit",
       }).format(new Date()),
     );
+  const botConfig = useQuery({
+    queryKey: ["bot-config"],
+    queryFn: () =>
+      request<{ telegramBotUsername: string | null }>("/auth/config"),
+    enabled: !me,
+    retry: false,
+  });
   const ownStatus = useQuery({
     queryKey: ["own-location"],
     queryFn: () =>
@@ -456,13 +463,25 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
             {error}
           </p>
         )}
-        <button
-          className="btn"
-          disabled={busy || !sdkReady}
-          onClick={() => authenticate()}
-        >
-          {busy ? "Проверяем Telegram…" : "Войти через Telegram →"}
-        </button>
+        {botConfig.data?.telegramBotUsername &&
+        !(typeof window !== "undefined" && window.Telegram?.WebApp.initData) ? (
+          <a
+            className="btn"
+            href={`https://t.me/${botConfig.data.telegramBotUsername}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Открыть в Telegram ↗
+          </a>
+        ) : (
+          <button
+            className="btn"
+            disabled={busy || !sdkReady}
+            onClick={() => authenticate()}
+          >
+            {busy ? "Проверяем Telegram…" : "Войти через Telegram →"}
+          </button>
+        )}
         {process.env.NODE_ENV === "development" && (
           <div style={{ marginTop: 25 }}>
             <p className="subtle">
