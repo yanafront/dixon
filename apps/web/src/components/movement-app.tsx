@@ -1,5 +1,7 @@
 "use client";
 import Script from "next/script";
+import { Icon } from "./icon";
+import { useTelegramNavigation } from "./telegram-navigation";
 import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -64,11 +66,11 @@ const labels: Record<string, string> = {
 const hero =
   "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=1400&q=85";
 const nav = [
-  ["map", "◎", "Карта"],
-  ["find", "◇", "Найти"],
-  ["create", "＋", "Создать"],
-  ["activities", "▤", "Активности"],
-  ["profile", "♙", "Профиль"],
+  ["map", "map", "Карта"],
+  ["find", "people", "Люди"],
+  ["create", "plus", "Создать"],
+  ["activities", "calendar", "Активности"],
+  ["profile", "profile", "Профиль"],
 ];
 const friendly = (e: unknown) =>
   e instanceof ApiError
@@ -171,8 +173,9 @@ function Modal({
         aria-label="Подробности"
       >
         <button className="close" onClick={close} aria-label="Закрыть">
-          ×
+          <Icon name="close" />
         </button>
+        <div className="sheet-handle" aria-hidden="true" />
         {children}
       </section>
     </div>
@@ -181,18 +184,33 @@ function Modal({
 export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
   const { me, setMe } = useSession();
   const qc = useQueryClient();
-  const [tab, setTab] = useState(initialTab);
+  const [tab, setTab] = useState(
+    initialTab === "home" ? "activities" : initialTab,
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
-  const [modal, setModal] = useState<{ type: string; data?: any } | null>(null);
+  type SheetState = { type: string; data?: any } | null;
+  const [modal, setModalState] = useState<SheetState>(null);
+  const modalRef = useRef<SheetState>(null);
+  const sheetHistory = useRef<NonNullable<SheetState>[]>([]);
+  const setModal = useCallback((next: SheetState) => {
+    if (next && modalRef.current) sheetHistory.current.push(modalRef.current);
+    if (!next) sheetHistory.current = [];
+    modalRef.current = next;
+    setModalState(next);
+  }, []);
   const [toast, setToast] = useState("");
   const [category, setCategory] = useState("");
   const [feed, setFeed] = useState("Все");
   const [mode, setMode] = useState("SPORT");
   const [radius, setRadius] = useState("");
   const [match, setMatch] = useState(false);
-  const close = useCallback(() => setModal(null), []);
+  const close = useCallback(() => {
+    const previous = sheetHistory.current.pop() ?? null;
+    modalRef.current = previous;
+    setModalState(previous);
+  }, []);
   const notify = useCallback((s: string) => {
     setToast(s);
     setTimeout(() => setToast(""), 4000);
@@ -249,7 +267,23 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
   }, [qc]);
   const action = useMutation({
     mutationFn: async (fn: () => Promise<unknown>) => fn(),
-    onSuccess: () => refresh(),
+    onSuccess: (data) => {
+      refresh();
+      const d = data as Record<string, unknown> | null;
+      notify(
+        d?.blocked
+          ? "Пользователь заблокирован"
+          : d?.saved === true
+            ? "Добавлено в сохранённое"
+            : d?.saved === false
+              ? "Удалено из сохранённого"
+              : d?.joined === true
+                ? "Вы записаны на активность"
+                : d?.joined === false
+                  ? "Участие отменено"
+                  : "Готово. Изменения сохранены",
+      );
+    },
     onError: (e) => notify(friendly(e)),
   });
   const run = (fn: () => Promise<unknown>) =>
@@ -321,6 +355,15 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
     setModal({ type: "person", data });
     void api.track("profile_viewed").catch(() => {});
   }, []);
+  useTelegramNavigation(
+    tab,
+    !!modal,
+    () => {
+      if (modal) close();
+      else setTab("activities");
+    },
+    sdkReady,
+  );
   const go = (next: string) => {
     setTab(next);
     if (next === "map" || next === "find")
@@ -328,6 +371,7 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         .track(next === "map" ? "map_opened" : "discover_opened")
         .catch(() => {});
     window.scrollTo(0, 0);
+    setModal(null);
   };
   const eventCard = (e: EventDto) => (
     <article key={e.id} className="event">
@@ -365,7 +409,10 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         <button className="card-title" onClick={() => showEvent(e)}>
           <h3>{e.title}</h3>
         </button>
-        <p>⌖ {e.locationName}</p>
+        <p className="location-line">
+          <Icon name="pin" size={16} />
+          {e.locationName}
+        </p>
         <p>
           {labels[e.difficulty]} · {e.creator.firstName}
         </p>
@@ -382,9 +429,33 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
             }
             aria-label={e.saved ? "Убрать из сохранённых" : "Сохранить"}
           >
-            {e.saved ? "♥ Сохранено" : "♡ Сохранить"}
+            <Icon name={e.saved ? "check" : "save"} size={18} />
+            {e.saved ? "Сохранено" : "Сохранить"}
           </button>
         </div>
+        <button
+          className={e.joined ? "btn alt card-join" : "btn card-join"}
+          disabled={
+            action.isPending || (!e.joined && e.participantCount >= e.capacity)
+          }
+          onClick={() =>
+            e.joined
+              ? showEvent(e)
+              : run(() => request(`/events/${e.id}/join`, "POST"))
+          }
+        >
+          <Icon name={e.joined ? "check" : "plus"} size={18} />
+          {e.joined
+            ? "Вы участвуете"
+            : e.participantCount >= e.capacity
+              ? "Мест нет"
+              : "Присоединиться"}
+        </button>
+        <span className="seat-hint">
+          {e.capacity - e.participantCount > 0
+            ? `Свободно ${e.capacity - e.participantCount} мест`
+            : "Группа набрана"}
+        </span>
       </div>
     </article>
   );
@@ -505,7 +576,11 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
   else if (!ready)
     content = (
       <>
-        <h1>Начнём с тебя.</h1>
+        <h1>Найди свою компанию.</h1>
+        <p className="onboarding-intro">
+          Выбери интересы — покажем людей и активности. Геолокация и
+          романтические знакомства включаются отдельно, когда захочешь.
+        </p>
         <ProfileForm
           me={me}
           done={(m) => {
@@ -785,8 +860,18 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         }}
       />
       <header>
-        <button className="logo" onClick={() => go("home")} aria-label="DIXON — на главную">
-          <img className="brand-logo" src="/brand/dixon-logo-red.svg" alt="DIXON" width={380} height={76} />
+        <button
+          className="logo"
+          onClick={() => go("home")}
+          aria-label="DIXON — на главную"
+        >
+          <img
+            className="brand-logo"
+            src="/brand/dixon-logo-red.svg"
+            alt="DIXON"
+            width={380}
+            height={76}
+          />
         </button>
         <span className="city">◎ {me?.city || "Минск"}</span>
         <div className="header-right">
@@ -795,7 +880,7 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
             aria-label="Уведомления"
             onClick={() => setModal({ type: "notifications" })}
           >
-            ♧
+            <Icon name="bell" />
           </button>
           <button className="avatar" onClick={() => go("profile")}>
             {me?.firstName[0] || "↗"}
@@ -810,9 +895,10 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
               <button
                 key={key}
                 className={tab === key ? "active" : ""}
+                aria-current={tab === key ? "page" : undefined}
                 onClick={() => go(key)}
               >
-                <span className="nav-icon">{icon}</span>
+                <Icon name={icon} />
                 {label}
               </button>
             ))}
@@ -874,9 +960,10 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
           <button
             key={key}
             className={tab === key ? "active" : ""}
+            aria-current={tab === key ? "page" : undefined}
             onClick={() => go(key)}
           >
-            <span className="nav-icon">{icon}</span>
+            <Icon name={icon} />
             {label}
           </button>
         ))}
@@ -887,7 +974,7 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         </div>
       )}
       {modal && (
-        <Modal close={close}>
+        <Modal key={modal.type} close={close}>
           {modal.type === "event" && (
             <EventDetail
               initial={modal.data}
@@ -927,20 +1014,43 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
                   })
                 }
               >
-                Пожаловаться
+                <Icon name="flag" size={18} /> Пожаловаться
               </button>
               <button
                 className="btn alt"
                 disabled={action.isPending}
-                onClick={async () => {
-                  await run(() =>
-                    request("/blocks", "POST", { userId: modal.data.id }),
-                  );
-                  close();
-                }}
+                onClick={() =>
+                  setModal({ type: "confirmBlock", data: modal.data })
+                }
               >
-                Заблокировать
+                <Icon name="block" size={18} /> Заблокировать
               </button>
+            </>
+          )}
+          {modal.type === "confirmBlock" && (
+            <>
+              <h2>Заблокировать {modal.data.firstName}?</h2>
+              <p>
+                Вы перестанете видеть друг друга в поиске и на карте. Контакт
+                через мэтч станет недоступен.
+              </p>
+              <div className="actions">
+                <button
+                  className="btn"
+                  disabled={action.isPending}
+                  onClick={async () => {
+                    const result = await run(() =>
+                      request("/blocks", "POST", { userId: modal.data.id }),
+                    );
+                    if (result) setModal(null);
+                  }}
+                >
+                  Заблокировать
+                </button>
+                <button className="btn alt" onClick={close}>
+                  Отмена
+                </button>
+              </div>
             </>
           )}
           {modal.type === "profile" && me && (
@@ -998,7 +1108,7 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
                           window.open(r.url, "_blank", "noopener,noreferrer");
                       }}
                     >
-                      Написать
+                      <Icon name="chat" size={18} /> Написать
                     </button>
                     <button
                       className="btn alt"
@@ -1170,13 +1280,23 @@ function PersonCard({
   open: () => void;
 }) {
   const x = useRef(0);
+  const y = useRef(0);
   return (
     <article
       className="person-card"
-      onTouchStart={(e) => (x.current = e.changedTouches[0].clientX)}
+      onTouchStart={(e) => {
+        x.current = e.changedTouches[0].clientX;
+        y.current = e.changedTouches[0].clientY;
+      }}
       onTouchEnd={(e) => {
         const delta = e.changedTouches[0].clientX - x.current;
-        if (!pending && Math.abs(delta) > 85) like(delta > 0);
+        if (
+          !pending &&
+          Math.abs(delta) > 85 &&
+          Math.abs(delta) >
+            Math.abs(e.changedTouches[0].clientY - y.current) * 1.5
+        )
+          like(delta > 0);
       }}
     >
       {p.photos[0] ? (
@@ -1206,14 +1326,14 @@ function PersonCard({
             disabled={pending}
             onClick={() => like(false)}
           >
-            × Пропустить
+            <Icon name="close" /> Пропустить
           </button>
           <button className="btn" disabled={pending} onClick={() => like(true)}>
-            ♥ Нравится
+            <Icon name="heart" /> Нравится
           </button>
         </div>
         <button className="text" onClick={open}>
-          Открыть профиль и безопасность ↗
+          Подробнее о человеке
         </button>
       </div>
     </article>
@@ -1796,7 +1916,7 @@ function EventDetail({
           ))}
         </>
       )}
-      <div className="actions">
+      <div className="actions event-detail-actions">
         <button
           className="btn"
           disabled={pending || (!e.joined && e.participantCount >= e.capacity)}
@@ -1807,7 +1927,7 @@ function EventDetail({
           }
         >
           {e.joined
-            ? "Выйти"
+            ? "Отменить участие"
             : e.participantCount >= e.capacity
               ? "Все места заняты"
               : "Присоединиться →"}
@@ -1839,7 +1959,7 @@ function EventDetail({
           Поделиться
         </button>
         <button className="text" onClick={report}>
-          Пожаловаться
+          <Icon name="flag" size={18} /> Пожаловаться
         </button>
         {me?.id === e.creatorId && (
           <button
