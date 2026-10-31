@@ -1,5 +1,6 @@
 "use client";
 import Script from "next/script";
+import { useRouter } from "next/navigation";
 import { Icon } from "./icon";
 import { useTelegramNavigation } from "./telegram-navigation";
 import dynamic from "next/dynamic";
@@ -66,10 +67,10 @@ const labels: Record<string, string> = {
 const hero =
   "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=1400&q=85";
 const nav = [
+  ["activities", "activity", "Лента"],
   ["map", "map", "Карта"],
-  ["find", "people", "Люди"],
   ["create", "plus", "Создать"],
-  ["activities", "calendar", "Активности"],
+  ["find", "people", "Люди"],
   ["profile", "profile", "Профиль"],
 ];
 const friendly = (e: unknown) =>
@@ -181,7 +182,14 @@ function Modal({
     </div>
   );
 }
-export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
+export function MovementApp({
+  initialTab = "home",
+  returnTab = "activities",
+}: {
+  initialTab?: string;
+  returnTab?: string;
+}) {
+  const router = useRouter();
   const { me, setMe } = useSession();
   const qc = useQueryClient();
   const [tab, setTab] = useState(
@@ -345,7 +353,7 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
   const notifications = useQuery({
     queryKey: ["notifications"],
     queryFn: api.notifications,
-    enabled: ready && modal?.type === "notifications",
+    enabled: ready && tab === "notifications",
   });
   const showEvent = useCallback((data: EventDto) => {
     setModal({ type: "event", data });
@@ -360,11 +368,19 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
     !!modal,
     () => {
       if (modal) close();
-      else setTab("activities");
+      else go(tab === "notifications" ? returnTab : "activities");
     },
     sdkReady,
   );
   const go = (next: string) => {
+    if (next === "notifications") {
+      router.push(`/notifications?from=${tab}`);
+      return;
+    }
+    if (tab === "notifications") {
+      router.push(`/?section=${next}`);
+      return;
+    }
     setTab(next);
     if (next === "map" || next === "find")
       void api
@@ -464,9 +480,37 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
       <Status
         loading={events.isPending}
         error={events.error}
-        empty={events.data?.items.length === 0}
         retry={() => events.refetch()}
       />
+      {events.data?.items.length === 0 && (
+        <div className="empty">
+          <h2>
+            {feed === "Мои"
+              ? "Пока нет твоих активностей"
+              : feed === "Сохранённые"
+                ? "Пока ничего не сохранено"
+                : "Встреч пока нет"}
+          </h2>
+          <p>
+            {feed === "Сохранённые"
+              ? "Нажми на закладку в карточке встречи, чтобы вернуться к ней позже."
+              : "Создай встречу и пригласи людей присоединиться."}
+          </p>
+          <button className="btn" onClick={() => go("create")}>
+            Создать активность
+          </button>
+          <button
+            className="text"
+            onClick={() => {
+              setFeed("Все");
+              setCategory("");
+              go("activities");
+            }}
+          >
+            Все активности
+          </button>
+        </div>
+      )}
       <div className="events">{events.data?.items.map(eventCard)}</div>
     </>
   );
@@ -619,9 +663,7 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         <div className="content-grid">
           <section>
             <div className="section-head">
-              <h2>
-                Есть план <small>на ближайшие дни</small>
-              </h2>
+              <h2>Ближайшие встречи</h2>
               <button onClick={() => go("create")}>Создать ↗</button>
             </div>
             <div className="chips">
@@ -804,9 +846,7 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
             Мои мэтчи <span>{matches.data?.items.length ?? 0} ↗</span>
           </button>
           <button onClick={() => setModal({ type: "clubs" })}>Клубы ↗</button>
-          <button onClick={() => setModal({ type: "notifications" })}>
-            Уведомления ↗
-          </button>
+          <button onClick={() => go("notifications")}>Уведомления ↗</button>
           {me.role !== "USER" && (
             <button onClick={() => setTab("admin")}>Модерация ↗</button>
           )}
@@ -822,6 +862,114 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         </div>
       </>
     );
+  else if (tab === "notifications")
+    content = (
+      <section className="notifications-page" aria-label="Список уведомлений">
+        <Status
+          loading={notifications.isPending}
+          error={notifications.error}
+          retry={() => notifications.refetch()}
+        />
+        {notifications.data?.items.length === 0 && (
+          <div className="notification-empty">
+            <Icon name="bell" />
+            <h2>Пока нет уведомлений</h2>
+            <p>
+              Здесь появятся новые мэтчи, записи на активности и напоминания о
+              встречах.
+            </p>
+            <button className="btn" onClick={() => go("activities")}>
+              Найти активность
+            </button>
+          </div>
+        )}
+        {notifications.data?.items.map((n, index, items) => {
+          const day = new Intl.DateTimeFormat("ru-RU", {
+            day: "numeric",
+            month: "long",
+          }).format(new Date(n.createdAt));
+          const previousDay = index
+            ? new Intl.DateTimeFormat("ru-RU", {
+                day: "numeric",
+                month: "long",
+              }).format(new Date(items[index - 1].createdAt))
+            : null;
+          const actionable = Boolean(n.payload.eventId || n.payload.matchId);
+          return (
+            <div key={n.id}>
+              {day !== previousDay && (
+                <h2 className="notification-day">{day}</h2>
+              )}
+              <article
+                className={"notification-row" + (!n.readAt ? " unread" : "")}
+              >
+                <span className="notification-symbol">
+                  <Icon
+                    name={
+                      n.payload.eventId
+                        ? "calendar"
+                        : n.payload.matchId
+                          ? "people"
+                          : "bell"
+                    }
+                  />
+                </span>
+                <div className="notification-copy">
+                  <p>{n.payload.title || "Новое уведомление DIXON"}</p>
+                  <time dateTime={n.createdAt}>
+                    {new Intl.DateTimeFormat("ru-RU", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(n.createdAt))}
+                    {!n.readAt && " · Новое"}
+                  </time>
+                  {actionable && (
+                    <button
+                      className="notification-link"
+                      onClick={async () => {
+                        try {
+                          if (n.payload.eventId)
+                            showEvent(await api.event(n.payload.eventId));
+                          else setModal({ type: "matches" });
+                          if (!n.readAt)
+                            await request(
+                              `/notifications/${n.id}/read`,
+                              "PATCH",
+                            );
+                          void notifications.refetch();
+                        } catch (e) {
+                          notify(friendly(e));
+                        }
+                      }}
+                    >
+                      {n.payload.eventId
+                        ? "Посмотреть активность"
+                        : "Посмотреть мэтч"}
+                      <Icon name="arrow" size={16} />
+                    </button>
+                  )}
+                  {!actionable && !n.readAt && (
+                    <button
+                      className="notification-link"
+                      onClick={() =>
+                        run(() =>
+                          request(`/notifications/${n.id}/read`, "PATCH"),
+                        )
+                      }
+                    >
+                      Отметить прочитанным
+                    </button>
+                  )}
+                </div>
+                {!n.readAt && (
+                  <span className="unread-dot" aria-label="Непрочитанное" />
+                )}
+              </article>
+            </div>
+          );
+        })}
+      </section>
+    );
   else if (tab === "admin") content = <Admin />;
   const deepLink = useRef(false);
   useEffect(() => {
@@ -835,19 +983,26 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
         .catch((e) => notify(friendly(e)));
   }, [ready, showEvent, notify]);
   const title =
-    tab === "home"
-      ? "Свои люди. В движении."
-      : tab === "map"
-        ? "Твой город в движении."
-        : tab === "find"
-          ? "Найди свой ритм."
-          : tab === "create"
-            ? "Собери свою компанию."
-            : tab === "profile"
-              ? "Твой профиль."
-              : tab === "admin"
-                ? "Модерация."
-                : "Есть план. Присоединяйся.";
+    (
+      {
+        home: "Лента",
+        activities: "Лента",
+        map: "Карта",
+        find: "Люди",
+        create: "Новая активность",
+        profile: "Профиль",
+        admin: "Модерация",
+        notifications: "Уведомления",
+      } as Record<string, string>
+    )[tab] || "Лента";
+  const guidance = (
+    {
+      activities: "Выбери встречу и нажми «Присоединиться»",
+      map: "Люди и активности рядом с тобой",
+      find: "Выбирай людей с общими интересами",
+      create: "Укажи место и время — пригласи компанию",
+    } as Record<string, string>
+  )[tab];
   return (
     <>
       <Script
@@ -862,7 +1017,7 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
       <header>
         <button
           className="logo"
-          onClick={() => go("home")}
+          onClick={() => go("activities")}
           aria-label="DIXON — на главную"
         >
           <img
@@ -878,7 +1033,7 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
           <button
             className="icon"
             aria-label="Уведомления"
-            onClick={() => setModal({ type: "notifications" })}
+            onClick={() => go("notifications")}
           >
             <Icon name="bell" />
           </button>
@@ -898,8 +1053,10 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
                 aria-current={tab === key ? "page" : undefined}
                 onClick={() => go(key)}
               >
-                <Icon name={icon} />
-                {label}
+                <span className="nav-icon-slot">
+                  <Icon name={icon} />
+                </span>
+                <span className="nav-label">{label}</span>
               </button>
             ))}
           </nav>
@@ -927,29 +1084,40 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
           {ready && (
             <div className="topline">
               <div>
-                <p>Встречаемся в реальной жизни · {me?.city}</p>
+                {tab === "notifications" && (
+                  <button
+                    className="page-back"
+                    onClick={() => go(returnTab)}
+                    aria-label="Назад"
+                  >
+                    <span aria-hidden="true">←</span> Назад
+                  </button>
+                )}
                 <h1>{title}</h1>
+                {guidance && <p className="screen-guidance">{guidance}</p>}
               </div>
-              <button
-                className="status"
-                onClick={() => setModal({ type: "location" })}
-              >
-                <span
-                  className="dot"
-                  style={{
-                    background:
-                      ownStatus.data &&
-                      new Date(ownStatus.data.expiresAt) > new Date()
-                        ? "#36a777"
-                        : "#aaa",
-                  }}
-                />
-                {ownStatus.data &&
-                new Date(ownStatus.data.expiresAt) > new Date()
-                  ? "Открыт к общению"
-                  : "Я открыт к общению"}{" "}
-                ↗
-              </button>
+              {["map", "find", "profile"].includes(tab) && (
+                <button
+                  className="status"
+                  onClick={() => setModal({ type: "location" })}
+                >
+                  <span
+                    className="dot"
+                    style={{
+                      background:
+                        ownStatus.data &&
+                        new Date(ownStatus.data.expiresAt) > new Date()
+                          ? "#36a777"
+                          : "#aaa",
+                    }}
+                  />
+                  {ownStatus.data &&
+                  new Date(ownStatus.data.expiresAt) > new Date()
+                    ? "Вы видны на карте"
+                    : "Показать меня на карте"}{" "}
+                  ↗
+                </button>
+              )}
             </div>
           )}
           {content}
@@ -963,8 +1131,10 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
             aria-current={tab === key ? "page" : undefined}
             onClick={() => go(key)}
           >
-            <Icon name={icon} />
-            {label}
+            <span className="nav-icon-slot">
+              <Icon name={icon} />
+            </span>
+            <span className="nav-label">{label}</span>
           </button>
         ))}
       </nav>
@@ -1170,38 +1340,6 @@ export function MovementApp({ initialTab = "home" }: { initialTab?: string }) {
                   )}
                 </div>
               ))}
-            </>
-          )}{" "}
-          {modal.type === "notifications" && (
-            <>
-              <h2>Уведомления</h2>
-              <Status
-                loading={notifications.isPending}
-                error={notifications.error}
-                empty={notifications.data?.items.length === 0}
-                retry={() => notifications.refetch()}
-              />
-              {notifications.data?.items.map((n) => (
-                <div className="report-row" key={n.id}>
-                  <p>{n.payload.title || n.type}</p>
-                  {!n.readAt && (
-                    <button
-                      className="text"
-                      onClick={() =>
-                        run(() =>
-                          request(`/notifications/${n.id}/read`, "PATCH"),
-                        )
-                      }
-                    >
-                      Прочитано ✓
-                    </button>
-                  )}
-                </div>
-              ))}
-              <p className="subtle">
-                Для сообщений в Telegram открой бота и нажми /start. Отключить —
-                /stop.
-              </p>
             </>
           )}{" "}
           {modal.type === "guidelines" && (
