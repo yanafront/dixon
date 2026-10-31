@@ -67,7 +67,7 @@ const labels: Record<string, string> = {
 const hero =
   "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=1400&q=85";
 const nav = [
-  ["activities", "activity", "Лента"],
+  ["activities", "home", "Лента"],
   ["map", "map", "Карта"],
   ["create", "plus", "Создать"],
   ["find", "people", "Люди"],
