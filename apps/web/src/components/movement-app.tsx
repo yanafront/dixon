@@ -1034,7 +1034,6 @@ export function MovementApp({
             height={76}
           />
         </button>
-        <span className="city">◎ {me?.city || "Минск"}</span>
         <div className="header-right">
           <button
             className="icon"
