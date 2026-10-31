@@ -126,9 +126,11 @@ function Status({
 function Modal({
   children,
   close,
+  variant,
 }: {
   children: React.ReactNode;
   close: () => void;
+  variant?: "event";
 }) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -138,9 +140,11 @@ function Modal({
     const listener = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
       if (e.key === "Tab") {
-        const els = ref.current?.querySelectorAll<HTMLElement>(
-          "button:not(:disabled),input,select,textarea,a[href]",
-        );
+        const els = Array.from(
+          ref.current?.querySelectorAll<HTMLElement>(
+            "button:not(:disabled),input,select,textarea,a[href],summary",
+          ) ?? [],
+        ).filter((el) => el.getClientRects().length > 0);
         if (!els?.length) return;
         const first = els[0],
           last = els[els.length - 1];
@@ -168,6 +172,7 @@ function Modal({
     >
       <section
         id="sheet"
+        className={variant === "event" ? "event-sheet" : undefined}
         ref={ref}
         role="dialog"
         aria-modal="true"
@@ -1152,7 +1157,11 @@ export function MovementApp({
         </div>
       )}
       {modal && (
-        <Modal key={modal.type} close={close}>
+        <Modal
+          key={modal.type}
+          close={close}
+          variant={modal.type === "event" ? "event" : undefined}
+        >
           {modal.type === "event" && (
             <EventDetail
               initial={modal.data}
@@ -1995,143 +2004,236 @@ function EventDetail({
     queryFn: () => request<Page<PublicUser>>(`/events/${e.id}/participants`),
     enabled: showMembers,
   });
+  const date = new Date(e.dateStart);
+  const seats = Math.max(0, e.capacity - e.participantCount);
+  const parameterLabels: Record<string, string> = {
+    distance_km: "Дистанция, км",
+    pace_min_km: "Темп, мин/км",
+    surface: "Покрытие",
+    speed_kmh: "Скорость, км/ч",
+    bike_type: "Велосипед",
+    elevation_m: "Набор высоты, м",
+    duration_min: "Длительность, мин",
+    equipment: "Снаряжение",
+    notes: "Дополнительно",
+  };
   return (
-    <>
-      <span className="event-time">
-        {labels[e.category]} ·{" "}
-        {new Date(e.dateStart).toLocaleString("ru", {
-          timeZone: "Europe/Minsk",
-        })}
-      </span>
-      <h2>{e.title}</h2>
-      <p>
-        Организатор: {e.creator.firstName}
-        {e.creator.isVerified ? " ✓" : ""}
-      </p>
-      <div className="facts">
-        <div>
-          <small>ГДЕ</small>
-          {e.locationName}
-        </div>
-        <div>
-          <small>УРОВЕНЬ</small>
-          {labels[e.difficulty]}
-        </div>
-        <div>
-          <small>УЧАСТНИКИ</small>
-          {e.participantCount} из {e.capacity}
-        </div>
-        <div>
-          <small>СТОИМОСТЬ</small>
-          {e.price ? e.price + " BYN" : "Бесплатно"}
-        </div>
-      </div>
-      <p>{e.description}</p>
-      {Object.entries(e.parameters).map(([k, v]) => (
-        <p className="subtle" key={k}>
-          {(
-            {
-              distance_km: "Дистанция, км",
-              pace_min_km: "Темп, мин/км",
-              surface: "Покрытие",
-              speed_kmh: "Скорость, км/ч",
-              bike_type: "Велосипед",
-              elevation_m: "Набор высоты, м",
-              duration_min: "Длительность, мин",
-              equipment: "Снаряжение",
-              notes: "Дополнительно",
-            } as Record<string, string>
-          )[k] || "Параметр"}
-          : {Array.isArray(v) ? v.join(", ") : String(v)}
-        </p>
-      ))}
-      <button className="text" onClick={() => setShowMembers(!showMembers)}>
-        Посмотреть участников
-      </button>
-      {showMembers && (
-        <>
-          <Status
-            loading={members.isPending}
-            error={members.error}
-            retry={() => members.refetch()}
-          />
-          {members.data?.items.map((p) => (
-            <button className="chip" key={p.id} onClick={() => showUser(p)}>
-              {p.firstName}
-            </button>
-          ))}
-        </>
-      )}
-      <div className="actions event-detail-actions">
-        <button
-          className="btn"
-          disabled={pending || (!e.joined && e.participantCount >= e.capacity)}
-          onClick={() =>
-            run(() =>
-              request(`/events/${e.id}/${e.joined ? "leave" : "join"}`, "POST"),
-            )
-          }
-        >
-          {e.joined
-            ? "Отменить участие"
-            : e.participantCount >= e.capacity
-              ? "Все места заняты"
-              : "Присоединиться →"}
-        </button>
-        <button
-          className="btn alt"
-          disabled={pending}
-          onClick={() =>
-            run(() =>
-              request(`/events/${e.id}/save`, e.saved ? "DELETE" : "POST"),
-            )
-          }
-        >
-          {e.saved ? "Убрать из сохранённых" : "Сохранить"}
-        </button>
-        <button
-          className="text"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(
-                location.origin + "/?event=" + e.id,
-              );
-              setShareMessage("Ссылка скопирована");
-            } catch {
-              setShareMessage("Не удалось скопировать ссылку");
-            }
-          }}
-        >
-          Поделиться
-        </button>
-        <button className="text" onClick={report}>
-          <Icon name="flag" size={18} /> Пожаловаться
-        </button>
-        {me?.id === e.creatorId && (
+    <div className="event-detail">
+      <div className="event-detail-scroll">
+        <div className="event-detail-toolbar">
+          <span className="event-category">
+            {labels[e.category]}
+            {e.isOfficial ? " · DIXON" : ""}
+          </span>
           <button
-            className="text red-text"
+            className="event-icon-button"
+            aria-label={
+              e.saved ? "Убрать из сохранённых" : "Сохранить активность"
+            }
+            aria-pressed={e.saved}
             disabled={pending}
-            onClick={() => run(() => request(`/events/${e.id}`, "DELETE"))}
+            onClick={() =>
+              run(() =>
+                request(`/events/${e.id}/save`, e.saved ? "DELETE" : "POST"),
+              )
+            }
           >
-            Отменить событие
+            <Icon name={e.saved ? "check" : "save"} size={20} />
           </button>
+          <button
+            className="event-icon-button"
+            aria-label="Поделиться активностью"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(
+                  location.origin + "/?event=" + e.id,
+                );
+                setShareMessage("Ссылка скопирована");
+              } catch {
+                setShareMessage("Не удалось скопировать ссылку");
+              }
+            }}
+          >
+            <Icon name="share" size={20} />
+          </button>
+        </div>
+        <h2 className="event-detail-title">{e.title}</h2>
+        <div className="event-detail-facts">
+          <div>
+            <Icon name="calendar" size={20} />
+            <span>
+              <strong>
+                {date.toLocaleDateString("ru-RU", {
+                  day: "numeric",
+                  month: "long",
+                  timeZone: "Europe/Minsk",
+                })}
+              </strong>
+              <small>
+                {date.toLocaleTimeString("ru-RU", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  timeZone: "Europe/Minsk",
+                })}{" "}
+                ·{" "}
+                {date.toLocaleDateString("ru-RU", {
+                  weekday: "short",
+                  timeZone: "Europe/Minsk",
+                })}
+              </small>
+            </span>
+          </div>
+          <div>
+            <Icon name="pin" size={20} />
+            <span>
+              <strong>{e.locationName}</strong>
+              <small>Место встречи</small>
+            </span>
+          </div>
+          <div>
+            <Icon name="activity" size={20} />
+            <span>
+              <strong>{labels[e.difficulty]}</strong>
+              <small>Уровень</small>
+            </span>
+          </div>
+          <div>
+            <Icon name="ticket" size={20} />
+            <span>
+              <strong>{e.price ? `${e.price} BYN` : "Бесплатно"}</strong>
+              <small>Стоимость</small>
+            </span>
+          </div>
+        </div>
+        <div className="event-organizer">
+          <span className="organizer-avatar" aria-hidden="true">
+            {e.creator.firstName[0]}
+          </span>
+          <span>
+            {e.creator.firstName}
+            {e.creator.isVerified && <Icon name="check" size={14} />}
+            <small>Организатор</small>
+          </span>
+        </div>
+        {e.description && (
+          <p className="event-description-preview">{e.description}</p>
+        )}
+        <details
+          className="event-disclosure"
+          onToggle={(ev) => setShowMembers(ev.currentTarget.open)}
+        >
+          <summary>
+            <Icon name="people" size={18} />
+            <span>
+              Участники · {e.participantCount}/{e.capacity}
+            </span>
+            <Icon name="chevron" size={16} />
+          </summary>
+          <div className="event-members">
+            <Status
+              loading={members.isPending}
+              error={members.error}
+              retry={() => members.refetch()}
+            />
+            {members.data?.items.length === 0 && (
+              <p>Пока никто не присоединился</p>
+            )}
+            {members.data?.items.map((p) => (
+              <button className="chip" key={p.id} onClick={() => showUser(p)}>
+                {p.firstName}
+              </button>
+            ))}
+          </div>
+        </details>
+        <details className="event-disclosure">
+          <summary>
+            <Icon name="info" size={18} />
+            <span>Подробности</span>
+            <Icon name="chevron" size={16} />
+          </summary>
+          <div className="event-expanded">
+            {e.description && <p>{e.description}</p>}
+            {Object.entries(e.parameters).map(([k, v]) => (
+              <div className="event-parameter" key={k}>
+                <span>{parameterLabels[k] || "Параметр"}</span>
+                <strong>{Array.isArray(v) ? v.join(", ") : String(v)}</strong>
+              </div>
+            ))}
+            <button className="text" onClick={report}>
+              <Icon name="flag" size={16} /> Пожаловаться
+            </button>
+            {me?.id === e.creatorId && (
+              <button
+                className="text red-text"
+                disabled={pending || e.isCancelled}
+                onClick={() => run(() => request(`/events/${e.id}`, "DELETE"))}
+              >
+                Отменить событие
+              </button>
+            )}
+          </div>
+        </details>
+        {shareMessage && (
+          <p className="event-feedback" role="status">
+            {shareMessage}
+          </p>
+        )}
+        {q.error && (
+          <p className="event-feedback red-text" role="alert">
+            {friendly(q.error)}
+          </p>
         )}
       </div>
-      {shareMessage && <p role="status">{shareMessage}</p>}
-      {e.joined && e.telegramChatUrl && (
-        <a
-          className="text"
-          href={e.telegramChatUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Чат активности
-        </a>
-      )}
-      {q.error && <p role="alert">{friendly(q.error)}</p>}
-    </>
+      <div className="event-detail-footer">
+        <div className="event-seat-status">
+          {e.isCancelled
+            ? "Событие отменено"
+            : e.joined
+              ? "Вы в списке участников"
+              : seats
+                ? `Свободно ${seats} из ${e.capacity} мест`
+                : "Группа набрана"}
+        </div>
+        <div className="event-footer-buttons">
+          {e.joined && e.telegramChatUrl && !e.isCancelled && (
+            <a
+              className="btn"
+              href={e.telegramChatUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Icon name="chat" size={18} />
+              Чат
+            </a>
+          )}
+          <button
+            className={"btn" + (e.joined ? " alt" : "")}
+            disabled={pending || e.isCancelled || (!e.joined && seats === 0)}
+            onClick={() =>
+              run(() =>
+                request(
+                  `/events/${e.id}/${e.joined ? "leave" : "join"}`,
+                  "POST",
+                ),
+              )
+            }
+          >
+            {pending
+              ? "Сохраняем…"
+              : e.isCancelled
+                ? "Событие отменено"
+                : e.joined
+                  ? "Отменить участие"
+                  : seats === 0
+                    ? "Мест нет"
+                    : "Присоединиться"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
+
 function LocationForm({
   run,
   done,
