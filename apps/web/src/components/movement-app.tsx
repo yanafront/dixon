@@ -195,6 +195,9 @@ export function MovementApp({
   const [tab, setTab] = useState(
     initialTab === "home" ? "activities" : initialTab,
   );
+  useEffect(() => {
+    setTab(initialTab === "home" ? "activities" : initialTab);
+  }, [initialTab]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
@@ -373,6 +376,7 @@ export function MovementApp({
     sdkReady,
   );
   const go = (next: string) => {
+    if (next === tab) return;
     if (next === "notifications") {
       router.push(`/notifications?from=${tab}`);
       return;
