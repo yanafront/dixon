@@ -30,7 +30,26 @@ export default function Map({
     for (const e of events) {
       const el = document.createElement("button");
       el.className = "live-pin event-pin";
-      el.textContent = "↗";
+      const icon = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg",
+      );
+      icon.setAttribute("viewBox", "0 0 24 24");
+      icon.setAttribute("width", "24");
+      icon.setAttribute("height", "24");
+      icon.setAttribute("fill", "none");
+      icon.setAttribute("stroke", "currentColor");
+      icon.setAttribute("stroke-width", "2");
+      icon.setAttribute("stroke-linecap", "round");
+      icon.setAttribute("stroke-linejoin", "round");
+      icon.setAttribute("aria-hidden", "true");
+      const path = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "path",
+      );
+      path.setAttribute("d", "M3 12h4l3-8 4 16 3-8h4");
+      icon.appendChild(path);
+      el.appendChild(icon);
       el.setAttribute("aria-label", e.title);
       el.onclick = () => onEvent(e);
       new maplibregl.Marker({ element: el })

@@ -402,14 +402,16 @@ export function MovementApp({
         aria-label={e.title}
       >
         <span className="sport-glyph">
-          {e.category === "running"
-            ? "↗"
-            : e.category === "cycling"
-              ? "◎"
-              : "△"}
+          {e.category === "running" ? (
+            <Icon name="activity" size={100} />
+          ) : e.category === "cycling" ? (
+            "◎"
+          ) : (
+            "△"
+          )}
         </span>
         <span className={"badge " + (e.isOfficial ? "official" : "")}>
-          {e.isOfficial ? "DIXON OFFICIAL ↗" : labels[e.category]}
+          {e.isOfficial ? "DIXON OFFICIAL" : labels[e.category]}
         </span>
       </button>
       <div className="event-body">
@@ -534,7 +536,7 @@ export function MovementApp({
   const sidebar = (
     <aside className="right-column">
       <section>
-        <div className="right-head">Город в движении ↗</div>
+        <div className="right-head">Город в движении</div>
         <button
           className="map-preview"
           style={{ width: "100%" }}
@@ -543,7 +545,7 @@ export function MovementApp({
           <div className="map-art" />
           <div className="river" />
           <span className="map-name">МИНСК</span>
-          <span className="map-go">Открыть карту людей и активностей ↗</span>
+          <span className="map-go">Открыть карту людей и активностей</span>
         </button>
         <p className="subtle">Общий интерес — лучший повод познакомиться.</p>
       </section>
@@ -557,7 +559,7 @@ export function MovementApp({
           </h3>
           <p>Находи клуб и двигайся вместе.</p>
           <button onClick={() => setModal({ type: "clubs" })}>
-            Клубы сообщества ↗
+            Клубы сообщества
           </button>
         </div>
       </section>
@@ -590,7 +592,7 @@ export function MovementApp({
             target="_blank"
             rel="noreferrer"
           >
-            Открыть в Telegram ↗
+            Открыть в Telegram
           </a>
         ) : (
           <button
@@ -659,7 +661,7 @@ export function MovementApp({
                 Твоя компания уже где-то рядом.
               </p>
               <button className="btn" onClick={() => go("find")}>
-                Найти своих ↗
+                Найти своих
               </button>
             </div>
           </section>
@@ -668,7 +670,7 @@ export function MovementApp({
           <section>
             <div className="section-head">
               <h2>Ближайшие встречи</h2>
-              <button onClick={() => go("create")}>Создать ↗</button>
+              <button onClick={() => go("create")}>Создать</button>
             </div>
             <div className="chips">
               {["Все", "Сегодня", "Мои", "Сохранённые"].map((t) => (
@@ -773,7 +775,7 @@ export function MovementApp({
           </>
         )}
         <button className="text" onClick={() => go("activities")}>
-          Познакомиться через активность ↗
+          Познакомиться через активность
         </button>
       </>
     );
@@ -830,13 +832,13 @@ export function MovementApp({
         </div>
         <div className="settings">
           <button onClick={() => setModal({ type: "profile" })}>
-            Редактировать профиль ↗
+            Редактировать профиль
           </button>
           <button onClick={() => setModal({ type: "photos" })}>
-            Мои фотографии <span>{me.photos.length}/6 ↗</span>
+            Мои фотографии <span>{me.photos.length}/6</span>
           </button>
           <button onClick={() => setModal({ type: "location" })}>
-            Видимость на карте ↗
+            Видимость на карте
           </button>
           <button
             onClick={() => {
@@ -844,18 +846,18 @@ export function MovementApp({
               go("activities");
             }}
           >
-            Мои активности ↗
+            Мои активности
           </button>
           <button onClick={() => setModal({ type: "matches" })}>
-            Мои мэтчи <span>{matches.data?.items.length ?? 0} ↗</span>
+            Мои мэтчи <span>{matches.data?.items.length ?? 0}</span>
           </button>
-          <button onClick={() => setModal({ type: "clubs" })}>Клубы ↗</button>
-          <button onClick={() => go("notifications")}>Уведомления ↗</button>
+          <button onClick={() => setModal({ type: "clubs" })}>Клубы</button>
+          <button onClick={() => go("notifications")}>Уведомления</button>
           {me.role !== "USER" && (
-            <button onClick={() => setTab("admin")}>Модерация ↗</button>
+            <button onClick={() => setTab("admin")}>Модерация</button>
           )}
           <button onClick={() => setModal({ type: "guidelines" })}>
-            Правила и приватность ↗
+            Правила и приватность
           </button>
           <button
             className="red-text"
@@ -1041,8 +1043,12 @@ export function MovementApp({
           >
             <Icon name="bell" />
           </button>
-          <button className="avatar" onClick={() => go("profile")}>
-            {me?.firstName[0] || "↗"}
+          <button
+            className="icon header-profile"
+            aria-label="Профиль"
+            onClick={() => go("profile")}
+          >
+            <Icon name="profile" />
           </button>
         </div>
       </header>
@@ -1079,7 +1085,7 @@ export function MovementApp({
               className="text"
               onClick={() => setModal({ type: "guidelines" })}
             >
-              Правила сообщества ↗
+              Правила сообщества
             </button>
             <span>© DIXON MOVEMENT</span>
           </div>
@@ -1119,7 +1125,6 @@ export function MovementApp({
                   new Date(ownStatus.data.expiresAt) > new Date()
                     ? "Вы видны на карте"
                     : "Показать меня на карте"}{" "}
-                  ↗
                 </button>
               )}
             </div>
@@ -1339,7 +1344,7 @@ export function MovementApp({
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Чат клуба ↗
+                      Чат клуба
                     </a>
                   )}
                 </div>
@@ -2042,7 +2047,7 @@ function EventDetail({
         </p>
       ))}
       <button className="text" onClick={() => setShowMembers(!showMembers)}>
-        Посмотреть участников ↗
+        Посмотреть участников
       </button>
       {showMembers && (
         <>
@@ -2121,7 +2126,7 @@ function EventDetail({
           target="_blank"
           rel="noreferrer"
         >
-          Чат активности ↗
+          Чат активности
         </a>
       )}
       {q.error && <p role="alert">{friendly(q.error)}</p>}
